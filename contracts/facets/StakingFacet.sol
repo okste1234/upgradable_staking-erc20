@@ -2,10 +2,10 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "../interfaces/IERC20.sol";
-import {LibStake} from "../libraries/LibAppStorage.sol";
+import {LibAppStorage} from "../libraries/LibAppStorage.sol";
 
 contract StakingFacet {
-    LibStake.StakeStorage ss
+    LibAppStorage.StakeStorage ss;
 
     // custom errors
     error ADDRESS_ZERO();
@@ -19,9 +19,13 @@ contract StakingFacet {
     event claimSuccessful(address _staker, uint256 _amount);
     event unStakeSuccessful(address _staker, uint256 _amount);
 
+    constructor(address _wcxToken, address rToken) {
+        ss.erc20Token = _wcxToken;
+        ss.rewardToken = rToken;
+    }
+
     // stake function
     function stake(uint256 _amount) external {
-
         if (msg.sender == address(0)) {
             revert ADDRESS_ZERO();
         }
@@ -43,7 +47,11 @@ contract StakingFacet {
             "failed to transfer"
         );
 
-        ss.stakes[msg.sender] = LibStake.StakeInfo(_amount, block.timestamp, 0);
+        ss.stakes[msg.sender] = LibAppStorage.StakeInfo(
+            _amount,
+            block.timestamp,
+            0
+        );
 
         emit stakingSuccessful(msg.sender, _amount);
     }
@@ -58,7 +66,7 @@ contract StakingFacet {
             revert USER_HAS_NO_STAKE();
         }
 
-        LibStake.StakeInfo memory _staker = ss.stakes[msg.sender];
+        LibAppStorage.StakeInfo memory _staker = ss.stakes[msg.sender];
         uint256 _reward = _staker.reward + calculateReward();
 
         ss.stakes[msg.sender].reward = 0;
@@ -75,7 +83,6 @@ contract StakingFacet {
 
     // cliam reward function
     function cliamReward() external {
-
         if (ss.stakes[msg.sender].amountStaked <= 0) {
             revert NO_REWARD_TO_CLIAM();
         }
@@ -92,7 +99,6 @@ contract StakingFacet {
 
     // calculateReward function
     function calculateReward() public view returns (uint256) {
-
         uint256 _callerStake = ss.stakes[msg.sender].amountStaked;
 
         if (_callerStake <= 0) {

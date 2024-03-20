@@ -8,9 +8,11 @@ import "../contracts/facets/OwnershipFacet.sol";
 
 import "../contracts/facets/LayoutChangerFacet.sol";
 import "../contracts/facets/WCXTokenFacet.sol";
+import "../contracts/facets/StakingFacet.sol";
 
 import "forge-std/Test.sol";
 import "../contracts/Diamond.sol";
+import "../contracts/RCXToken.sol";
 
 import "../contracts/libraries/LibAppStorage.sol";
 
@@ -22,6 +24,8 @@ contract DiamondDeployer is Test, IDiamondCut {
     OwnershipFacet ownerF;
     LayoutChangerFacet lFacet;
     WCXTokenFacet wcxFacet;
+    RCXToken rcxToken;
+    StakingFacet stakingF;
 
     function setUp() public {
         //deploy facets
@@ -31,6 +35,8 @@ contract DiamondDeployer is Test, IDiamondCut {
         ownerF = new OwnershipFacet();
         lFacet = new LayoutChangerFacet();
         wcxFacet = new WCXTokenFacet();
+        rcxToken = new RCXToken();
+        stakingF = new StakingFacet(address(wcxFacet), address(rcxToken));
 
         //upgrade diamond with facets
 
@@ -95,18 +101,10 @@ contract DiamondDeployer is Test, IDiamondCut {
     //     assertEq(la.currentNo, 777);
     // }
 
-    // function getERC20() internal view returns (string memory) {
-    // return LibAppStorage.ERC20._symbol;
-    // }
-
     function testWcxFacet() public {
         WCXTokenFacet wcx = WCXTokenFacet(address(diamond));
         //check outputs
-
-        LibAppStorage.ERC20 memory token = wcx.symbol();
-
-        assertEq(token._symbol, "WCX");
-        // assertEq(la.currentNo, 777);
+        assertEq(wcx.symbol(), "WCX");
     }
 
     function generateSelectors(
