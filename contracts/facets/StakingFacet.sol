@@ -17,7 +17,7 @@ contract StakingFacet {
     );
     event StakingSuccessful(address sender, uint _amount);
 
-    function init(address _stakedToken, address _rewardToken) external {
+    constructor(address _stakedToken, address _rewardToken) {
         stakeToken = IERC20(_stakedToken);
         rewardToken = IERC20(_rewardToken);
     }
