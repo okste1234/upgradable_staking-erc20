@@ -1,113 +1,69 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.9;
 
-import {IERC20} from "../interfaces/IERC20.sol";
-import {LibAppStorage} from "../libraries/LibAppStorage.sol";
+import "../interfaces/IERC20.sol";
+import "../libraries/LibAppStorage.sol";
 
 contract StakingFacet {
-    LibAppStorage.StakeStorage ss;
+    LibAppStorage.StakingStorage internal s;
 
-    // custom errors
-    error ADDRESS_ZERO();
-    error INVALID_AMOUNT();
-    error INSUFFICIENT_AMOUNT();
-    error USER_HAS_NO_STAKE();
-    error NO_REWARD_TO_CLIAM();
+    IERC20 private stakeToken;
+    IERC20 private rewardToken;
 
-    // events
-    event stakingSuccessful(address _staker, uint256 _amount);
-    event claimSuccessful(address _staker, uint256 _amount);
-    event unStakeSuccessful(address _staker, uint256 _amount);
+    event Unstaked(
+        address indexed _sender,
+        address indexed _to,
+        uint _amountToBeTransfered
+    );
+    event StakingSuccessful(address sender, uint _amount);
 
-    constructor(address _wcxToken, address rToken) {
-        ss.erc20Token = _wcxToken;
-        ss.rewardToken = rToken;
+    function init(address _stakedToken, address _rewardToken) external {
+        stakeToken = IERC20(_stakedToken);
+        rewardToken = IERC20(_rewardToken);
     }
 
-    // stake function
-    function stake(uint256 _amount) external {
-        if (msg.sender == address(0)) {
-            revert ADDRESS_ZERO();
-        }
-
-        if (_amount <= 0) {
-            revert INVALID_AMOUNT();
-        }
-
-        if (IERC20(ss.erc20Token).balanceOf(msg.sender) < _amount) {
-            revert INSUFFICIENT_AMOUNT();
-        }
-
+    function stake(uint _amount) external {
+        require(msg.sender != address(0), "Address Zero");
+        require(_amount >= 0, "Invalid amount");
         require(
-            IERC20(ss.erc20Token).transferFrom(
-                msg.sender,
-                address(this),
-                _amount
-            ),
-            "failed to transfer"
+            IERC20(stakeToken).balanceOf(msg.sender) >= _amount,
+            "insuffiecient balance"
         );
+        IERC20(stakeToken).transferFrom(msg.sender, address(this), _amount);
+        s.balanceOf[msg.sender] += _amount;
+        s.totalSupply += _amount;
+        s.stakeTime[msg.sender] = block.timestamp;
 
-        ss.stakes[msg.sender] = LibAppStorage.StakeInfo(
-            _amount,
-            block.timestamp,
-            0
-        );
-
-        emit stakingSuccessful(msg.sender, _amount);
+        emit StakingSuccessful(msg.sender, _amount);
     }
 
-    // function unstake
-    function unStake() external {
-        if (msg.sender == address(0)) {
-            revert ADDRESS_ZERO();
+    function calculateBalanceWithInterest(
+        address _user
+    ) private view returns (uint256) {
+        require(_user != address(0), "Address Zero");
+
+        if (s.balanceOf[_user] == 0) {
+            return 0;
         }
+        uint256 stakingDuration = block.timestamp - s.stakeTime[_user];
+        uint256 partialYearPercentage = (stakingDuration * 100) / (365 days); // Percentage of the year staked
+        uint256 interest = (s.balanceOf[_user] * 120 * partialYearPercentage) /
+            10000; // Adjusted for partial year
+        return s.balanceOf[_user] + interest;
+    }
 
-        if (ss.stakes[msg.sender].amountStaked <= 0) {
-            revert USER_HAS_NO_STAKE();
-        }
-
-        LibAppStorage.StakeInfo memory _staker = ss.stakes[msg.sender];
-        uint256 _reward = _staker.reward + calculateReward();
-
-        ss.stakes[msg.sender].reward = 0;
-        ss.stakes[msg.sender].timeStaked = 0;
-        ss.stakes[msg.sender].amountStaked = 0;
-
-        IERC20(ss.rewardToken).transfer(
+    function unstaked() external {
+        uint256 _totalReward = calculateBalanceWithInterest(msg.sender);
+        s.balanceOf[msg.sender] = 0;
+        IERC20(rewardToken).transferFrom(
+            address(this),
             msg.sender,
-            _staker.amountStaked + _reward
+            _totalReward
         );
-
-        emit unStakeSuccessful(msg.sender, _staker.amountStaked + _reward);
+        emit Unstaked(address(this), msg.sender, _totalReward);
     }
 
-    // cliam reward function
-    function cliamReward() external {
-        if (ss.stakes[msg.sender].amountStaked <= 0) {
-            revert NO_REWARD_TO_CLIAM();
-        }
-
-        uint256 _reward = ss.stakes[msg.sender].reward + calculateReward();
-
-        ss.stakes[msg.sender].reward = 0;
-        ss.stakes[msg.sender].timeStaked = block.timestamp;
-
-        IERC20(ss.rewardToken).transfer(msg.sender, _reward);
-
-        emit claimSuccessful(msg.sender, _reward);
-    }
-
-    // calculateReward function
-    function calculateReward() public view returns (uint256) {
-        uint256 _callerStake = ss.stakes[msg.sender].amountStaked;
-
-        if (_callerStake <= 0) {
-            revert USER_HAS_NO_STAKE();
-        }
-
-        return
-            (block.timestamp - ss.stakes[msg.sender].timeStaked) *
-            ss.rewardRate *
-            _callerStake;
+    function contractBalance() external view returns (uint) {
+        return IERC20(stakeToken).balanceOf(address(this));
     }
 }

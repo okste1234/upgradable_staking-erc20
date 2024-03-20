@@ -27,6 +27,8 @@ contract DiamondDeployer is Test, IDiamondCut {
     RCXToken rcxToken;
     StakingFacet stakingF;
 
+    // stake
+
     function setUp() public {
         //deploy facets
         dCutFacet = new DiamondCutFacet();
@@ -36,12 +38,12 @@ contract DiamondDeployer is Test, IDiamondCut {
         lFacet = new LayoutChangerFacet();
         wcxFacet = new WCXTokenFacet();
         rcxToken = new RCXToken();
-        stakingF = new StakingFacet(address(wcxFacet), address(rcxToken));
+        stakingF = new StakingFacet();
 
         //upgrade diamond with facets
 
         //build cut struct
-        FacetCut[] memory cut = new FacetCut[](4);
+        FacetCut[] memory cut = new FacetCut[](5);
 
         cut[0] = (
             FacetCut({
@@ -70,6 +72,13 @@ contract DiamondDeployer is Test, IDiamondCut {
                 facetAddress: address(wcxFacet),
                 action: FacetCutAction.Add,
                 functionSelectors: generateSelectors("WCXTokenFacet")
+            })
+        );
+        cut[4] = (
+            FacetCut({
+                facetAddress: address(stakingF),
+                action: FacetCutAction.Add,
+                functionSelectors: generateSelectors("StakingFacet")
             })
         );
 
@@ -103,8 +112,25 @@ contract DiamondDeployer is Test, IDiamondCut {
 
     function testWcxFacet() public {
         WCXTokenFacet wcx = WCXTokenFacet(address(diamond));
+        wcx.init();
         //check outputs
         assertEq(wcx.symbol(), "WCX");
+    }
+
+    function testStakingFacet() public {
+        WCXTokenFacet wcx = WCXTokenFacet(address(diamond));
+        wcx.init();
+        StakingFacet s = StakingFacet(address(diamond));
+        wcx.approve(address(diamond), 1000000000);
+        wcx.approve(address(s), 1000000000);
+
+        // RCXToken r = RCXToken(address(rcxToken));
+        s.init(address(wcx), address(rcxToken));
+        uint256 _amount = 100;
+        s.stake(_amount);
+        //check outputs
+        uint totalAmountStaked = s.contractBalance();
+        assertEq(totalAmountStaked, _amount);
     }
 
     function generateSelectors(

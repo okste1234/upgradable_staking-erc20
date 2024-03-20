@@ -18,17 +18,10 @@ library LibAppStorage {
     }
 
     // stake info storage
-    struct StakeInfo {
-        uint256 amountStaked;
-        uint256 timeStaked;
-        uint256 reward;
-    }
-
-    // stake storage
-    struct StakeStorage {
-        address erc20Token;
-        address rewardToken;
-        uint8 rewardRate;
-        mapping(address => StakeInfo) stakes;
+    struct StakingStorage {
+        mapping(address => uint) balanceOf;
+        mapping(address => uint) stakeTime;
+        mapping(address => uint) rewards;
+        uint256 totalSupply;
     }
 }

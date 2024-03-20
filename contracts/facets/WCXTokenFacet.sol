@@ -7,11 +7,13 @@ import {LibAppStorage} from "../libraries/LibAppStorage.sol";
 contract WCXTokenFacet is IERC20 {
     LibAppStorage.ERC20 token;
 
-    constructor() {
+    function init() public {
         token._name = "WCXToken";
         token._symbol = "WCX";
         token._decimal = 18;
         token._owner = msg.sender;
+        token._totalSupply = 1000000000;
+        mint(msg.sender, token._totalSupply);
     }
 
     function name() public view returns (string memory) {
