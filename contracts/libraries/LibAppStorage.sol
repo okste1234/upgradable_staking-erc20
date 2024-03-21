@@ -7,6 +7,7 @@ library LibAppStorage {
     struct UserStake {
         uint256 stakedTime;
         uint256 amount;
+        uint256 id;
     }
     struct Layout {
         //ERC20
@@ -21,6 +22,9 @@ library LibAppStorage {
         uint256 rewardRate;
         mapping(address => UserStake) userDetails;
         address[] stakers;
+        uint256 lastStakedTime;
+        uint256 stakerCounts;
+        uint256 totalStaked;
     }
 
     function layoutStorage() internal pure returns (Layout storage l) {

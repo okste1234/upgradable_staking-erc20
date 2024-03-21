@@ -21,9 +21,9 @@ contract DiamondDeployer is Test, IDiamondCut {
     DiamondCutFacet dCutFacet;
     DiamondLoupeFacet dLoupe;
     OwnershipFacet ownerF;
-    ERC20Facet erc20Facet;
+    WCXTokenFacet erc20Facet;
     StakingFacet sFacet;
-    WOWToken wow;
+    RCXToken wow;
 
     address A = address(0xa);
     address B = address(0xb);
@@ -36,9 +36,9 @@ contract DiamondDeployer is Test, IDiamondCut {
         diamond = new Diamond(address(this), address(dCutFacet));
         dLoupe = new DiamondLoupeFacet();
         ownerF = new OwnershipFacet();
-        erc20Facet = new ERC20Facet();
+        erc20Facet = new WCXTokenFacet();
         sFacet = new StakingFacet();
-        wow = new WOWToken(address(diamond));
+        wow = new RCXToken(address(diamond));
 
         //upgrade diamond with facets
 
@@ -72,7 +72,7 @@ contract DiamondDeployer is Test, IDiamondCut {
             FacetCut({
                 facetAddress: address(erc20Facet),
                 action: FacetCutAction.Add,
-                functionSelectors: generateSelectors("ERC20Facet")
+                functionSelectors: generateSelectors("WCXTokenFacet")
             })
         );
 
@@ -85,8 +85,8 @@ contract DiamondDeployer is Test, IDiamondCut {
         B = mkaddr("staker b");
 
         //mint test tokens
-        ERC20Facet(address(diamond)).mintTo(A);
-        ERC20Facet(address(diamond)).mintTo(B);
+        WCXTokenFacet(address(diamond)).mintTo(A);
+        WCXTokenFacet(address(diamond)).mintTo(B);
 
         boundStaking = StakingFacet(address(diamond));
     }
@@ -95,21 +95,32 @@ contract DiamondDeployer is Test, IDiamondCut {
         switchSigner(A);
         boundStaking.stake(50_000_000e18);
 
-        vm.warp(3154e7);
-        boundStaking.checkRewards(A);
         switchSigner(B);
+        boundStaking.stake(50_000_000e18);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(StakingFacet.NoMoney.selector, 0)
-        );
-        boundStaking.unstake(5);
+        vm.warp(2000e7);
+        boundStaking.calculateUserReward(B);
 
-        bytes32 value = vm.load(
-            address(diamond),
-            bytes32(abi.encodePacked(uint256(2)))
-        );
-        uint256 decodevalue = abi.decode(abi.encodePacked(value), (uint256));
-        console.log(decodevalue);
+        // vm.expectRevert(
+        //     abi.encodeWithSelector(StakingFacet.NoMoney.selector, 0)
+        // );
+        boundStaking.unstake(50_000_000e18);
+
+        vm.warp(3154e7);
+        boundStaking.calculateUserReward(A);
+        wow.balanceOf(address(diamond));
+
+        // boundStaking.unstake(50_000_000e18);
+
+        // switchSigner(A);
+        // boundStaking.unstake(50_000_000e18);
+
+        // bytes32 value = vm.load(
+        //     address(diamond),
+        //     bytes32(abi.encodePacked(uint256(2)))
+        // );
+        // uint256 decodevalue = abi.decode(abi.encodePacked(value), (uint256));
+        // console.log(decodevalue);
     }
 
     // function testLayoutfacet() public {
@@ -161,7 +172,7 @@ contract DiamondDeployer is Test, IDiamondCut {
             vm.startPrank(_newSigner);
         }
 
-        uint256[] = new uint256[](2);
+        // uint256[] = new uint256[](2);
     }
 
     function diamondCut(
